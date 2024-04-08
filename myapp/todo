@@ -1,0 +1,63 @@
+const express = require('express')
+const path = require('path')
+const {open} = require('sqlite')
+const sqlite3 = require('sqlite3')
+
+const app = express()
+
+const dbPath = path.join(__dirname, 'todoApplication.db')
+app.use(express.json())
+
+let database = null
+
+const initilizationBDAndServer = async () => {
+  try {
+    database = await open({
+      filename: dbPath,
+      driver: sqlite3.Database,
+    })
+    app.listen(3000, () => {
+      console.log('Server Running')
+    })
+  } catch (e) {
+    console.log(`BD Error: ${e.message}`)
+    process.exit(1)
+  }
+}
+
+initilizationBDAndServer()
+
+const hasPriorityAndStatusProperty = requestQuery => {
+  return (
+    requestQuery.priority !== undefined && requestQuery.status !== undefined
+  )
+}
+const hasPriorityProperty = requestQuery => {
+  return requestQuery.priority !== undefined
+}
+
+const hasStatusProperty = requestQuery => {
+  return requestQuery.status !== undefined
+}
+
+app.get('/todos/', async (request, response) => {
+  let data = null
+  let getTodosQuery = ''
+  const {search_q = '', priority, status} = request.query
+
+  switch (true) {
+    case hasPriorityAndStatusProperty(request.query):
+      getTodosQuery = `select * from todo where todo like '%${search_q}%' and status = '${status}' and priority = '${priority}'`
+      break
+    case hasPriorityProperty(request.query):
+      getTodosQuery = `select * from todo where todo like '%${search_q}%' and priority = '${priority}'`
+      break
+    case hasStatusProperty(request.query):
+      getTodosQuery = `select * from todo where todo like '%${search_q}%' and status = '${status}'`
+      break
+    default:
+      getTodosQuery = `select * from todo where todo like '%${search_q}%'`
+  }
+  data = await database.all(getTodosQuery)
+  response.send(data)
+})
